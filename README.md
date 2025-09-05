@@ -31,29 +31,27 @@ Through an interactive Gradio interface, users can adjust parameters to deform o
 
 ## Parameters
 
-* dx / dy (px): Global displacement (baseline) in pixels. Simulates the positional offset between cameras.
+- **dx / dy (px):** Global displacement (baseline) in pixels. Simulates the positional offset between cameras.
 
-* Perspective (0–1): Small corner deformations to simulate different viewpoints. Higher values generate stronger distortions.
+- **Perspective (0–1):** Small corner deformations to simulate different viewpoints. Higher values generate stronger distortions.
 
-* Rotation (°): Small pitch, yaw, or roll misalignments.
+- **Rotation (°):** Small pitch, yaw, or roll misalignments.
 
-* Scale & Blur: Simulates resolution differences between sensors:
+- **Scale & Blur:** Simulates resolution differences between sensors:
 
-* Scale: downscale / upscale.
+- **Scale:** downscale / upscale.
 
-* Blur: additional Gaussian blur.
+- **Blur:** additional Gaussian blur.
 
-- Apply to: Select which image to transform:
+- **Apply to:** Select which image to transform:
 
     - thermal (default)
-
     - rgb
+    - both
 
-    -  both
+- **Relative:** Interprets dx/dy as a fraction of the image width/height instead of absolute pixels.
 
-* Relative: Interprets dx/dy as a fraction of the image width/height instead of absolute pixels.
-
-* Seed: Fixes the randomness of the perspective transformation for reproducibility.
+- **Seed:** Fixes the randomness of the perspective transformation for reproducibility.
 
 ## Batch Processing
 By clicking Process all:
