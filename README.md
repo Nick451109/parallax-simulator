@@ -8,16 +8,23 @@ Through an interactive Gradio interface, users can adjust parameters to deform o
 ## How to Use
 
 1. Create and activate a virtual environment (example with `venv`):
-   ```bash
-   python3 -m venv parallax-env
-   source parallax-env/bin/activate
 
+    ```bash
+    python3 -m venv parallax-env
+    source parallax-env/bin/activate
+    ```
 
 2. Install dependencies:
-    ```pip install opencv-python numpy tqdm gradio fastapi starlette pydantic uvicorn
 
-3. Run the script: 
-    ```python simulate_parallax.py
+    ```bash
+    pip install opencv-python numpy tqdm gradio fastapi starlette pydantic uvicorn
+    ```
+
+3. Run the script:
+
+    ```bash
+    python simulate_parallax.py
+    ```
 
 4. A local or public link will open in your browser with the interactive interface.
 
