@@ -1,0 +1,24 @@
+python3.10 -m venv .venv-parallax
+source .venv-parallax/bin/activate
+python -m pip install --upgrade pip
+
+pip install "gradio==4.44.1" "gradio-client==1.3.0" \
+  "fastapi==0.115.0" "starlette==0.38.5" "pydantic==2.9.2" "uvicorn==0.30.6" \
+  opencv-python numpy tqdm
+
+
+
+python - <<'PY'
+import gradio, gradio_client, fastapi, starlette, pydantic, uvicorn
+print("gradio", gradio.__version__)
+print("gradio_client", gradio_client.__version__)
+print("fastapi", fastapi.__version__)
+print("starlette", starlette.__version__)
+print("pydantic", pydantic.__version__)
+print("uvicorn", uvicorn.__version__)
+PY
+
+
+
+
+python simulate_parallax.py
