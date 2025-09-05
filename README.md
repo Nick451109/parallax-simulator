@@ -10,14 +10,14 @@ Through an interactive Gradio interface, users can adjust parameters to deform o
 1. Create and activate a virtual environment (example with `venv`):
 
     ```bash
-    python3 -m venv parallax-env
-    source parallax-env/bin/activate
+    python3.10 -m venv .venv-parallax
+    source .venv-parallax/bin/activate
     ```
 
 2. Install dependencies:
 
     ```bash
-    pip install opencv-python numpy tqdm gradio fastapi starlette pydantic uvicorn
+    pip install "gradio==4.44.1" "gradio-client==1.3.0" "fastapi==0.115.0" "starlette==0.38.5" "pydantic==2.9.2" "uvicorn==0.30.6" opencv-python numpy tqdm uvicorn
     ```
 
 3. Run the script:
