@@ -10,8 +10,16 @@ Through an interactive Gradio interface, users can adjust parameters to deform o
 1. Create and activate a virtual environment (example with `venv`):
 
     ```bash
+
+    macOS
     python3.10 -m venv .venv-parallax
     source .venv-parallax/bin/activate
+    ```
+
+    ```bash
+    Windows
+    python -m venv .venv-parallax
+    .\.venv-parallax\Scripts\Activate
     ```
 
 2. Install dependencies:
