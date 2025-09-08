@@ -81,6 +81,33 @@ def apply_homography(img, H, out_size=None, border=cv2.BORDER_CONSTANT, border_v
     return cv2.warpPerspective(img, H, out_size, flags=cv2.INTER_LINEAR,
                                borderMode=border, borderValue=border_value)
 
+def apply_zoom_center(img, zoom=1.0, border=cv2.BORDER_CONSTANT, border_value=0):
+    """
+    Aplica un zoom alrededor del centro manteniendo el tamaño original.
+    zoom > 1  => acercar (crop virtual)
+    zoom < 1  => alejar (padding virtual)
+    """
+    if abs(zoom - 1.0) < 1e-6:
+        return img.copy()
+    h, w = img.shape[:2]
+    cx, cy = w * 0.5, h * 0.5
+
+    S = np.array([[zoom, 0,     0],
+                  [0,    zoom,  0],
+                  [0,    0,     1]], dtype=np.float32)
+    T1 = np.array([[1, 0, -cx],
+                   [0, 1, -cy],
+                   [0, 0,  1]], dtype=np.float32)
+    T2 = np.array([[1, 0,  cx],
+                   [0, 1,  cy],
+                   [0, 0,  1]], dtype=np.float32)
+    H = T2 @ S @ T1
+
+    return cv2.warpPerspective(img, H, (w, h),
+                               flags=cv2.INTER_LINEAR,
+                               borderMode=border,
+                               borderValue=border_value)
+
 def emulate_resolution_mismatch(img, scale_factor=1.0, blur_sigma=0.0):
     if abs(scale_factor - 1.0) < 1e-6 and blur_sigma <= 0:
         return img.copy()
@@ -98,7 +125,8 @@ def emulate_resolution_mismatch(img, scale_factor=1.0, blur_sigma=0.0):
     return res
 
 def simulate_pair(rgb_img, th_img, dx, dy, persp, rot, scale, blur,
-                  apply_to="thermal", relative=False, res_mismatch=True, force_th_3ch=False, seed=42):
+                  apply_to="thermal", relative=False, res_mismatch=True, force_th_3ch=False, seed=42,
+                  zoom=1.0):
     # Convertir térmica a 3 canales si se desea visualizar/guardar homogéneo
     rgb = rgb_img.copy()
     th  = th_img.copy()
@@ -123,6 +151,15 @@ def simulate_pair(rgb_img, th_img, dx, dy, persp, rot, scale, blur,
     if apply_to in ("rgb","both"):
         out_rgb = warp(out_rgb)
 
+    # Zoom alrededor del centro (emula cambio de focal)
+    if apply_to in ("thermal","both"):
+        out_th = apply_zoom_center(out_th, zoom=zoom,
+                                   border=cv2.BORDER_CONSTANT, border_value=0)
+    if apply_to in ("rgb","both"):
+        out_rgb = apply_zoom_center(out_rgb, zoom=zoom,
+                                    border=cv2.BORDER_CONSTANT, border_value=0)
+
+    # Mismatch de resolución (opcional)
     if res_mismatch:
         if apply_to in ("thermal","both"):
             out_th  = emulate_resolution_mismatch(out_th, scale_factor=scale, blur_sigma=blur)
@@ -174,21 +211,22 @@ def load_images(rgb_dir, th_dir, basename, force_th_3ch=False):
     return rgb, th, f"Cargado: {basename}"
 
 def preview(rgb_dir, th_dir, basename, dx, dy, persp, rot, scale, blur,
-            apply_to, relative, res_mismatch, force_th_3ch, seed):
+            apply_to, relative, res_mismatch, force_th_3ch, seed, zoom):
     rgb, th, msg = load_images(rgb_dir, th_dir, basename, force_th_3ch)
-    if rgb is None: 
+    if rgb is None:
         return None, None, msg
     out_rgb, out_th = simulate_pair(rgb, th, dx, dy, persp, rot, scale, blur,
                                     apply_to=apply_to, relative=relative,
                                     res_mismatch=res_mismatch,
-                                    force_th_3ch=force_th_3ch, seed=seed)
+                                    force_th_3ch=force_th_3ch, seed=seed,
+                                    zoom=zoom)
     before = side_by_side(bgr_to_rgb(rgb), bgr_to_rgb(th))
     after  = side_by_side(bgr_to_rgb(out_rgb), bgr_to_rgb(out_th))
     return before, after, msg
 
 def process_all(rgb_dir, th_dir, dx, dy, persp, rot, scale, blur,
                 apply_to, relative, res_mismatch, force_th_3ch, seed,
-                out_rgb_dir, out_th_dir, save_params):
+                out_rgb_dir, out_th_dir, save_params, zoom):
     pairs = list_pairs(rgb_dir, th_dir)
     if not pairs:
         return "No se encontraron pares."
@@ -206,15 +244,19 @@ def process_all(rgb_dir, th_dir, dx, dy, persp, rot, scale, blur,
             out_rgb, out_th = simulate_pair(rgb, th, dx, dy, persp, rot, scale, blur,
                                             apply_to=apply_to, relative=relative,
                                             res_mismatch=res_mismatch,
-                                            force_th_3ch=force_th_3ch, seed=seed)
+                                            force_th_3ch=force_th_3ch, seed=seed,
+                                            zoom=zoom)
 
             cv2.imwrite(os.path.join(out_rgb_dir, f"{basename}.png"), out_rgb)
             cv2.imwrite(os.path.join(out_th_dir,  f"{basename}.png"), out_th)
 
             if save_params:
-                params_log[basename] = dict(dx=dx, dy=dy, persp=persp, rot=rot,
-                                            scale=scale, blur=blur, apply_to=apply_to,
-                                            relative=relative, res_mismatch=res_mismatch, seed=seed)
+                params_log[basename] = dict(
+                    dx=dx, dy=dy, persp=persp, rot=rot,
+                    scale=scale, blur=blur, apply_to=apply_to,
+                    relative=relative, res_mismatch=res_mismatch,
+                    seed=seed, zoom=zoom
+                )
         except Exception as e:
             print(f"[WARN] Falló {basename}: {e}")
 
@@ -238,12 +280,13 @@ with gr.Blocks(title="Simulador de Parallax RGB–T") as demo:
     with gr.Row():
         dx   = gr.Slider(-80, 80, value=8, step=1, label="dx (px)")
         dy   = gr.Slider(-40, 40, value=0, step=1, label="dy (px)")
-        rot  = gr.Slider(-3.0, 3.0, value=0.0, step=0.1, label="Rotación (°)")
+        rot  = gr.Slider(-10.0, 10.0, value=0.0, step=0.1, label="Rotación (°)")
 
     with gr.Row():
         persp = gr.Slider(0.0, 1.0, value=0.2, step=0.01, label="Perspectiva (0..1)")
-        scale = gr.Slider(0.8, 1.1, value=0.90, step=0.01, label="Escala (mismatch resolución)")
+        scale = gr.Slider(0.5, 1.5, value=1.0, step=0.01, label="Escala (mismatch resolución)")
         blur  = gr.Slider(0.0, 3.0, value=0.0, step=0.1, label="Blur σ extra")
+        zoom  = gr.Slider(0.5, 2.0, value=1.0, step=0.01, label="Zoom (1 = ninguno)")
 
     with gr.Row():
         apply_to = gr.Radio(choices=["thermal","rgb","both"], value="thermal", label="Aplicar a")
@@ -271,14 +314,14 @@ with gr.Blocks(title="Simulador de Parallax RGB–T") as demo:
     preview_btn.click(
         preview,
         inputs=[rgb_dir, th_dir, basename_dd, dx, dy, persp, rot, scale, blur,
-                apply_to, relative, res_mismatch, force_th_3ch, seed],
+                apply_to, relative, res_mismatch, force_th_3ch, seed, zoom],
         outputs=[before_img, after_img, status]
     )
     process_btn.click(
         process_all,
         inputs=[rgb_dir, th_dir, dx, dy, persp, rot, scale, blur,
                 apply_to, relative, res_mismatch, force_th_3ch, seed,
-                out_rgb_dir, out_th_dir, save_params],
+                out_rgb_dir, out_th_dir, save_params, zoom],
         outputs=[status]
     )
 
@@ -289,5 +332,3 @@ if __name__ == "__main__":
         share=False,
         show_error=True
     )
-
-
