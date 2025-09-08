@@ -51,6 +51,10 @@ Through an interactive Gradio interface, users can adjust parameters to deform o
 
 - **Blur:** additional Gaussian blur.
 
+- **Zoom:** Virtual zoom applied around the image center.  
+  - Values > 1.0 simulate zoom-in (cropping).  
+  - Values < 1.0 simulate zoom-out (padding).
+
 - **Apply to:** Select which image to transform:
 
     - thermal (default)
