@@ -58,6 +58,7 @@ def compose_homography(w, h, dx_px=0.0, dy_px=0.0, persp_strength=0.0, rot_deg=0
                         [0, 1, dy_px],
                         [0, 0, 1]], dtype=np.float32)
 
+    # Perspectiva aleatoria (si persp_strength = 0, no habrá desplazamiento)
     max_shift = persp_strength * 0.02 * (w + h)
     tl = np.array([0 + np.random.uniform(-max_shift, max_shift*0.2),
                    0 + np.random.uniform(-max_shift*0.2, max_shift)], dtype=np.float32)
@@ -192,6 +193,22 @@ def side_by_side(a, b, max_width=1200):
 
 # ==================== Capa Gradio (UI) ====================
 
+# Valores "neutros" para no aplicar transformaciones
+NEUTRAL = {
+    "dx": 0,
+    "dy": 0,
+    "rot": 0.0,
+    "persp": 0.0,
+    "scale": 1.0,
+    "blur": 0.0,
+    "zoom": 1.0,
+    "apply_to": "thermal",
+    "relative": False,
+    "res_mismatch": True,
+    "force_th_3ch": False,
+    "seed": 42,
+}
+
 def refresh_pairs(rgb_dir, th_dir):
     pairs = list_pairs(rgb_dir, th_dir)
     choices = [p[0] for p in pairs]
@@ -266,6 +283,17 @@ def process_all(rgb_dir, th_dir, dx, dy, persp, rot, scale, blur,
 
     return f"Listo. Guardado en:\n- {out_rgb_dir}\n- {out_th_dir}"
 
+def reset_params():
+    """Devuelve los valores neutros para actualizar los componentes de la UI."""
+    return (
+        NEUTRAL["dx"], NEUTRAL["dy"], NEUTRAL["rot"],
+        NEUTRAL["persp"], NEUTRAL["scale"], NEUTRAL["blur"], NEUTRAL["zoom"],
+        NEUTRAL["apply_to"], NEUTRAL["relative"], NEUTRAL["res_mismatch"],
+        NEUTRAL["force_th_3ch"], NEUTRAL["seed"],
+        "",  # status vacío
+        None, None  # before_img y after_img en blanco (opcional)
+    )
+
 with gr.Blocks(title="Simulador de Parallax RGB–T") as demo:
     gr.Markdown("## Simulador de Parallax RGB–T\nAjusta los parámetros y observa el efecto en un par de ejemplo.")
 
@@ -278,24 +306,27 @@ with gr.Blocks(title="Simulador de Parallax RGB–T") as demo:
     basename_dd = gr.Dropdown(choices=[], label="Selecciona un par (basename)")
 
     with gr.Row():
-        dx   = gr.Slider(-80, 80, value=8, step=1, label="dx (px)")
-        dy   = gr.Slider(-40, 40, value=0, step=1, label="dy (px)")
-        rot  = gr.Slider(-10.0, 10.0, value=0.0, step=0.1, label="Rotación (°)")
+        dx   = gr.Slider(-200, 200, value=NEUTRAL["dx"], step=1, label="dx (px)")
+        dy   = gr.Slider(-200, 200, value=NEUTRAL["dy"], step=1, label="dy (px)")
+        rot  = gr.Slider(-10.0, 10.0, value=NEUTRAL["rot"], step=0.1, label="Rotación (°)")
 
     with gr.Row():
-        persp = gr.Slider(0.0, 1.0, value=0.2, step=0.01, label="Perspectiva (0..1)")
-        scale = gr.Slider(0.5, 1.5, value=1.0, step=0.01, label="Escala (mismatch resolución)")
-        blur  = gr.Slider(0.0, 3.0, value=0.0, step=0.1, label="Blur σ extra")
-        zoom  = gr.Slider(0.5, 2.0, value=1.0, step=0.01, label="Zoom (1 = ninguno)")
+        persp = gr.Slider(0.0, 1.0, value=NEUTRAL["persp"], step=0.01, label="Perspectiva (0..1)")
+        scale = gr.Slider(0.5, 1.5, value=NEUTRAL["scale"], step=0.01, label="Escala (mismatch resolución)")
+        blur  = gr.Slider(0.0, 5.0, value=NEUTRAL["blur"], step=0.1, label="Blur σ extra")
+        zoom  = gr.Slider(0.5, 2.0, value=NEUTRAL["zoom"], step=0.01, label="Zoom (1 = ninguno)")
 
     with gr.Row():
-        apply_to = gr.Radio(choices=["thermal","rgb","both"], value="thermal", label="Aplicar a")
-        relative = gr.Checkbox(False, label="dx/dy relativos al tamaño")
-        res_mismatch = gr.Checkbox(True, label="Simular mismatch de resolución")
-        force_th_3ch = gr.Checkbox(False, label="Forzar térmica a 3 canales (visualización)")
-        seed = gr.Number(value=42, precision=0, label="Semilla (reproducibilidad)")
+        apply_to = gr.Radio(choices=["thermal","rgb","both"], value=NEUTRAL["apply_to"], label="Aplicar a")
+        relative = gr.Checkbox(NEUTRAL["relative"], label="dx/dy relativos al tamaño")
+        res_mismatch = gr.Checkbox(NEUTRAL["res_mismatch"], label="Simular mismatch de resolución")
+        force_th_3ch = gr.Checkbox(NEUTRAL["force_th_3ch"], label="Forzar térmica a 3 canales (visualización)")
+        seed = gr.Number(value=NEUTRAL["seed"], precision=0, label="Semilla (reproducibilidad)")
 
-    preview_btn = gr.Button("👁️ Previsualizar")
+    with gr.Row():
+        preview_btn = gr.Button("👁️ Previsualizar")
+        reset_btn   = gr.Button("↩️ Reset")
+
     with gr.Row():
         before_img = gr.Image(label="Antes (RGB | Thermal)", interactive=False)
         after_img  = gr.Image(label="Después (RGB | Thermal)", interactive=False)
@@ -311,18 +342,29 @@ with gr.Blocks(title="Simulador de Parallax RGB–T") as demo:
 
     # Lógica de eventos
     refresh_btn.click(refresh_pairs, inputs=[rgb_dir, th_dir], outputs=[basename_dd, info_pairs])
+
     preview_btn.click(
         preview,
         inputs=[rgb_dir, th_dir, basename_dd, dx, dy, persp, rot, scale, blur,
                 apply_to, relative, res_mismatch, force_th_3ch, seed, zoom],
         outputs=[before_img, after_img, status]
     )
+
     process_btn.click(
         process_all,
         inputs=[rgb_dir, th_dir, dx, dy, persp, rot, scale, blur,
                 apply_to, relative, res_mismatch, force_th_3ch, seed,
                 out_rgb_dir, out_th_dir, save_params, zoom],
         outputs=[status]
+    )
+
+    # Reset: devuelve sliders/controles a valores neutros y limpia preview
+    reset_btn.click(
+        reset_params,
+        inputs=[],
+        outputs=[dx, dy, rot, persp, scale, blur, zoom,
+                 apply_to, relative, res_mismatch, force_th_3ch, seed,
+                 status, before_img, after_img]
     )
 
 if __name__ == "__main__":
